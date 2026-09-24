@@ -80,8 +80,8 @@ export function exportTradesToCSV(trades: Trade[]): string {
 export function getCSVTemplate(): string {
   return [
     CSV_HEADERS.join(','),
-    '2026-09-08,09:25:00,09:48:30,NIFTY 08SEP 24850 CE,F&O,Long,2,25,120.50,165.00,Untagged,Untagged,Untagged,"Tuesday weekly expiry breakout"',
-    '2026-09-08,10:15:00,10:32:00,BANKNIFTY 29SEP 52200 PE,F&O,Long,2,15,240.00,210.00,Untagged,Untagged,Untagged,"Stop loss hit cleanly at 210"',
+    '2026-09-08,09:25:00,09:48:30,NIFTY 08SEP 24850 CE,F&O,Long,2,75,120.50,165.00,Untagged,Untagged,Untagged,"Tuesday weekly expiry breakout"',
+    '2026-09-08,10:15:00,10:32:00,BANKNIFTY 29SEP 52200 PE,F&O,Long,2,30,240.00,210.00,Untagged,Untagged,Untagged,"Stop loss hit cleanly at 210"',
     '2026-09-09,11:30:00,12:15:00,RELIANCE,Equity,Long,1,100,2980.00,3012.00,Untagged,Untagged,Untagged,"VWAP bounce trend trade"',
   ].join('\n');
 }

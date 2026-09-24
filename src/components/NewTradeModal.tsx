@@ -28,7 +28,7 @@ export const NewTradeModal: React.FC<NewTradeModalProps> = ({
   // Equity Quantity vs F&O Lots/LotSize
   const [equityQuantity, setEquityQuantity] = useState<number>(100);
   const [lots, setLots] = useState<number>(2);
-  const [lotSize, setLotSize] = useState<number>(25);
+  const [lotSize, setLotSize] = useState<number>(75);
 
   const [entryPrice, setEntryPrice] = useState<number>(120);
   const [exitPrice, setExitPrice] = useState<number>(145);
@@ -45,10 +45,10 @@ export const NewTradeModal: React.FC<NewTradeModalProps> = ({
     setSymbol(sym);
     if (sym.includes('BANKNIFTY')) {
       setSegment('F&O');
-      setLotSize(15);
+      setLotSize(30);
     } else if (sym.includes('NIFTY')) {
       setSegment('F&O');
-      setLotSize(25);
+      setLotSize(75);
     } else if (sym.includes('CRUDE') || sym.includes('GOLD') || sym.includes('SILVER')) {
       setSegment('MCX');
       setLotSize(100);

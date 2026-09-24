@@ -71,23 +71,17 @@ function parseTimeToSeconds(t: string): number {
 export function evaluateAllTradesFlags(trades: Trade[]): Map<string, FlagType[]> {
   const flagMap = new Map<string, FlagType[]>();
 
-  if (!hasCompletedBaseline(trades)) {
-    // If under baseline, do not assign any active behavioral flags
-    trades.forEach((t) => flagMap.set(t.id, []));
+  if (!trades || trades.length === 0) {
     return flagMap;
   }
 
-  // Sort trades chronologically
+  // Sort trades chronologically: date asc, entry_time asc
   const sorted = [...trades].sort((a, b) => {
     if (a.date !== b.date) return a.date.localeCompare(b.date);
     return parseTimeToSeconds(a.entry_time) - parseTimeToSeconds(b.entry_time);
   });
 
   const uniqueDays = getUniqueTradingDays(sorted);
-
-  // Calculate overall baseline average lot size
-  const totalLots = sorted.reduce((sum, t) => sum + t.lots, 0);
-  const overallAvgLots = sorted.length > 0 ? totalLots / sorted.length : 1;
 
   // Group trades by date
   const tradesByDate = new Map<string, Trade[]>();
@@ -97,24 +91,27 @@ export function evaluateAllTradesFlags(trades: Trade[]): Map<string, FlagType[]>
     tradesByDate.set(t.date, list);
   }
 
-  // Calculate prior 10-day trade count average per day
-  const dailyAvgCountMap = new Map<string, number>();
-  for (let i = 0; i < uniqueDays.length; i++) {
-    const currentDate = uniqueDays[i];
-    const prevDays = uniqueDays.slice(Math.max(0, i - 10), i);
-    if (prevDays.length > 0) {
-      const prevTotalTrades = prevDays.reduce(
-        (sum, d) => sum + (tradesByDate.get(d)?.length || 0),
-        0
-      );
-      dailyAvgCountMap.set(currentDate, prevTotalTrades / prevDays.length);
-    } else {
-      dailyAvgCountMap.set(currentDate, 5); // sensible default
-    }
-  }
+  // Running tally of earlier trades to compute average lots of EARLIER trades only (trades before this one)
+  let earlierLotsSum = 0;
+  let earlierTradesCount = 0;
 
-  // Evaluate trade-by-trade flags
-  for (const [date, dayTrades] of tradesByDate.entries()) {
+  for (const date of uniqueDays) {
+    const dayIndex = uniqueDays.indexOf(date);
+    const dayTrades = tradesByDate.get(date) || [];
+
+    // REQUIREMENT 1: Never assign trade-level flags to trades on the first 5 trading days (baseline period: dayIndex 0 to 4).
+    // Flags start from trading day 6 (dayIndex >= 5).
+    if (dayIndex < 5) {
+      for (const trade of dayTrades) {
+        flagMap.set(trade.id, []);
+        // Add to earlier trades tally so subsequent days have accurate historical average lots
+        earlierLotsSum += trade.lots;
+        earlierTradesCount++;
+      }
+      continue;
+    }
+
+    // From trading day 6 onwards (dayIndex >= 5)
     let consecutiveLosses = 0;
 
     for (let i = 0; i < dayTrades.length; i++) {
@@ -148,13 +145,19 @@ export function evaluateAllTradesFlags(trades: Trade[]): Map<string, FlagType[]>
           triggered.push('Revenge');
         }
 
-        // Flag 3: Size jump (lots after a loss > 1.5× trader's average lots)
-        if (prevTrade.net_pnl < 0 && trade.lots > 1.5 * overallAvgLots) {
+        // Flag 3: Size jump
+        // REQUIREMENT 2: Must compare lots against the average lots of EARLIER trades only (trades before this one), not all trades.
+        const avgEarlierLots = earlierTradesCount > 0 ? (earlierLotsSum / earlierTradesCount) : 1;
+        if (prevTrade.net_pnl < 0 && trade.lots > 1.5 * avgEarlierLots) {
           triggered.push('Size jump');
         }
       }
 
       flagMap.set(trade.id, triggered);
+
+      // Add this trade to earlier tally AFTER evaluating its size jump comparison
+      earlierLotsSum += trade.lots;
+      earlierTradesCount++;
     }
   }
 
@@ -165,20 +168,22 @@ export function evaluateAllTradesFlags(trades: Trade[]): Map<string, FlagType[]>
  * Evaluates day-level flags for a given date
  */
 export function evaluateDayFlags(date: string, trades: Trade[]): FlagType[] {
-  if (!hasCompletedBaseline(trades)) {
+  const uniqueDays = getUniqueTradingDays(trades);
+  const dayIndex = uniqueDays.indexOf(date);
+
+  // REQUIREMENT 1: Never assign day-level flags to trades on the first 5 trading days (baseline period). Flags start from trading day 6.
+  if (dayIndex < 5 || dayIndex === -1) {
     return [];
   }
 
   const dayTrades = trades.filter((t) => t.date === date);
   if (dayTrades.length === 0) return [];
 
-  const uniqueDays = getUniqueTradingDays(trades);
-  const dayIndex = uniqueDays.indexOf(date);
   const flags = new Set<FlagType>();
 
   // Overtrade check: today's count > 2x average of previous up to 10 days
   const prevDays = uniqueDays.slice(Math.max(0, dayIndex - 10), dayIndex);
-  if (prevDays.length >= 3) {
+  if (prevDays.length >= 1) {
     const prevTradesCount = prevDays.reduce(
       (sum, d) => sum + trades.filter((t) => t.date === d).length,
       0

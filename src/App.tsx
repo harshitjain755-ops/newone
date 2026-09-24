@@ -47,13 +47,17 @@ export default function App() {
     return DEFAULT_CHARGES_SETTINGS;
   });
 
-  // 3. Trades State (Persisted in localStorage with Tuesday-expiry mock data)
+  // 3. Trades State (Persisted in localStorage with Tuesday-expiry and current NSE lot sizes mock data)
   const [trades, setTrades] = useState<Trade[]>(() => {
     try {
-      const saved = localStorage.getItem('tradelog_trades_v2');
+      const saved = localStorage.getItem('tradelog_trades_v3');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // If any NIFTY option trade still has old lot size 25, refresh to updated seed
+          const hasOldLotSizes = parsed.some((t: Trade) => t.symbol?.includes('NIFTY') && t.lot_size === 25);
+          if (!hasOldLotSizes) return parsed;
+        }
       }
     } catch (e) {
       // fallback
@@ -62,7 +66,7 @@ export default function App() {
   });
 
   useEffect(() => {
-    localStorage.setItem('tradelog_trades_v2', JSON.stringify(trades));
+    localStorage.setItem('tradelog_trades_v3', JSON.stringify(trades));
   }, [trades]);
 
   // 4. Daily Plans State
