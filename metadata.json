@@ -1,0 +1,7 @@
+{
+  "name": "TradeLog AI",
+  "description": "Trading journal for Indian retail traders (NSE/BSE/MCX) with discipline scoring, behavioral flags, and P&L analytics.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
